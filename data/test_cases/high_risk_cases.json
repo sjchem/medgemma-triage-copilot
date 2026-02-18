@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "id": "HIGH_001",
+      "description": "Acute MI presentation",
+      "input": "58-year-old male presenting with crushing chest pain radiating to left arm for 45 minutes. History of hypertension, smoker. Diaphoretic, BP 160/95, HR 110, SpO2 94%. Denies nausea.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["chest pain", "radiating pain", "left arm pain", "diaphoresis"],
+      "expected_symptoms": ["crushing chest pain", "radiating pain", "diaphoresis", "shortness of breath"]
+    },
+    {
+      "id": "HIGH_002",
+      "description": "Acute stroke – FAST positive",
+      "input": "72-year-old female with sudden onset right-sided weakness and facial droop starting 30 minutes ago. Slurred speech noted. History of atrial fibrillation. BP 185/100, HR 88 irregular.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["sudden weakness", "facial droop", "slurred speech"],
+      "expected_symptoms": ["right-sided weakness", "facial droop", "slurred speech"]
+    },
+    {
+      "id": "HIGH_003",
+      "description": "Anaphylaxis",
+      "input": "28-year-old female with sudden onset lip swelling, throat tightness, and widespread urticaria 10 minutes after eating shellfish. Known shellfish allergy. Stridor audible, SpO2 91%, HR 120.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["anaphylaxis", "stridor", "respiratory distress"],
+      "expected_symptoms": ["lip swelling", "throat tightness", "urticaria", "stridor"]
+    },
+    {
+      "id": "HIGH_004",
+      "description": "Pediatric seizure",
+      "input": "3-year-old male brought in by parents, had generalized tonic-clonic seizure lasting 5 minutes at home. Currently postictal, drowsy. Temperature 39.8°C. No seizure history. No medications.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["pediatric seizure", "seizure"],
+      "expected_symptoms": ["seizure", "drowsiness", "fever"]
+    },
+    {
+      "id": "HIGH_005",
+      "description": "Suicidal ideation",
+      "input": "35-year-old male presenting with acute distress, reports wanting to die. Has a plan involving medications. History of depression, recently lost job. Denies substance use today.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["suicidal ideation", "wants to die", "suicide"],
+      "expected_symptoms": ["suicidal ideation", "acute distress"]
+    }
+  ]
+}

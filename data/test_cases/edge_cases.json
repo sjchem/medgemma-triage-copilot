@@ -1,0 +1,49 @@
+{
+  "cases": [
+    {
+      "id": "EDGE_001",
+      "description": "Vague presentation – minimal detail",
+      "input": "Patient says they don't feel well. That's all they will say.",
+      "expected_urgency": 3,
+      "expected_red_flags": [],
+      "expected_symptoms": ["malaise"],
+      "notes": "System should flag low confidence and missing information"
+    },
+    {
+      "id": "EDGE_002",
+      "description": "Negation-heavy description",
+      "input": "45-year-old male. Denies chest pain, denies shortness of breath, denies fever, denies nausea. Reports mild headache for 2 days. No medication use. No allergies.",
+      "expected_urgency": 2,
+      "expected_red_flags": [],
+      "expected_symptoms": ["headache"],
+      "notes": "System must correctly identify negations and not flag denied symptoms as red flags"
+    },
+    {
+      "id": "EDGE_003",
+      "description": "Multiple competing red flags",
+      "input": "68-year-old male with sudden onset chest pain AND sudden right-sided weakness AND difficulty speaking, started 20 minutes ago. History of CAD and prior stroke. On warfarin.",
+      "expected_urgency": 5,
+      "expected_red_flags": ["chest pain", "sudden weakness", "slurred speech"],
+      "expected_symptoms": ["chest pain", "right-sided weakness", "difficulty speaking"],
+      "notes": "Multiple simultaneous red flag categories – should escalate to maximum"
+    },
+    {
+      "id": "EDGE_004",
+      "description": "Pediatric with subtle presentation",
+      "input": "8-month-old infant, parents report decreased feeding for 2 days and increased sleepiness. Mild fever 37.8°C. No rash. No vomiting. Fontanelle appears normal.",
+      "expected_urgency": 3,
+      "expected_red_flags": [],
+      "expected_symptoms": ["decreased feeding", "increased sleepiness", "mild fever"],
+      "notes": "Pediatric cases should be triaged more conservatively"
+    },
+    {
+      "id": "EDGE_005",
+      "description": "Contradictory information",
+      "input": "50-year-old female reports severe 10/10 abdominal pain but appears comfortable, vitals completely normal, laughing with family. Pain started 1 week ago. No weight loss. Normal appetite.",
+      "expected_urgency": 2,
+      "expected_red_flags": [],
+      "expected_symptoms": ["abdominal pain"],
+      "notes": "System should note discrepancy between reported severity and clinical presentation"
+    }
+  ]
+}

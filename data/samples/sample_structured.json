@@ -1,0 +1,69 @@
+{
+  "chief_complaint": "Crushing chest pain",
+  "symptoms": [
+    {
+      "name": "crushing chest pain",
+      "normalized_name": "acute chest pain",
+      "body_region": "chest",
+      "severity": "severe",
+      "onset": "sudden",
+      "duration": "45 minutes",
+      "negation": "affirmed",
+      "confidence": 0.95
+    },
+    {
+      "name": "shortness of breath",
+      "normalized_name": "dyspnea",
+      "body_region": "respiratory",
+      "severity": "moderate",
+      "onset": "gradual",
+      "duration": "45 minutes",
+      "negation": "affirmed",
+      "confidence": 0.9
+    },
+    {
+      "name": "diaphoresis",
+      "normalized_name": "diaphoresis",
+      "body_region": "general",
+      "severity": "moderate",
+      "onset": "sudden",
+      "duration": "30 minutes",
+      "negation": "affirmed",
+      "confidence": 0.85
+    },
+    {
+      "name": "nausea",
+      "normalized_name": "nausea",
+      "body_region": "gastrointestinal",
+      "severity": null,
+      "onset": null,
+      "duration": null,
+      "negation": "negated",
+      "confidence": 0.9
+    }
+  ],
+  "vitals": {
+    "heart_rate": 110,
+    "blood_pressure_systolic": 160,
+    "blood_pressure_diastolic": 95,
+    "respiratory_rate": 22,
+    "temperature_c": 37.0,
+    "spo2": 94.0,
+    "gcs": 15
+  },
+  "demographics": {
+    "age": 58,
+    "sex": "male",
+    "weight_kg": null,
+    "pregnant": null
+  },
+  "medical_history": [
+    {"name": "hypertension", "category": "condition", "negation": "affirmed", "confidence": 1.0, "details": "chronic"}
+  ],
+  "medications": [],
+  "allergies": [],
+  "risk_factors": ["hypertension", "smoker", "family history of CAD"],
+  "missing_information": ["current medications", "allergy history", "exact weight"],
+  "uncertainty_notes": [],
+  "extraction_confidence": 0.88
+}

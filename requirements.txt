@@ -1,0 +1,31 @@
+# ──────────────────────────────────────────────────────────────
+# MedGuard Triage Copilot – Requirements
+# ──────────────────────────────────────────────────────────────
+
+# --- Core Pipeline ---
+huggingface_hub>=0.23.0       # HF Inference API client
+# MedASR requires transformers >= 5.0.0 (install from git if not released yet):
+#   pip install git+https://github.com/huggingface/transformers.git
+transformers>=5.0.0           # Model loading & ASR pipeline (MedASR needs ≥5.0)
+torch>=2.1.0                  # PyTorch backend
+librosa>=0.10.0               # Audio loading for MedASR (16kHz resampling)
+soundfile>=0.12.0             # Audio I/O backend for librosa
+sentencepiece>=0.2.0          # Tokenizer for Gemma
+accelerate>=0.30.0            # Model loading acceleration
+pydantic>=2.6.0               # Structured output schemas
+python-dotenv>=1.0.0          # Environment variable management
+PyYAML>=6.0                   # Config file parsing
+requests>=2.31.0              # HTTP requests to endpoints
+
+# --- API ---
+fastapi>=0.111.0              # REST API framework
+uvicorn>=0.29.0               # ASGI server
+
+# --- Multimodal & UI ---
+Pillow>=10.0.0                # Image handling
+streamlit>=1.35.0             # Demo interface
+
+# --- Evaluation & Utilities ---
+tqdm>=4.66.0                  # Progress bars
+numpy>=1.24.0                 # Numerical operations
+pandas>=2.0.0                 # Data analysis

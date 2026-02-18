@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────────────────────
+# MedGuard Triage Copilot – Model Configuration
+# ──────────────────────────────────────────────────────────────
+
+# Stage 1 – MedASR: Speech-to-Text (Google Conformer CTC, 105M params)
+# Model: https://huggingface.co/google/medasr
+# Small enough to run locally – download once, load offline.
+asr:
+  model_id: "google/medasr"
+  local_dir: "models/asr/medasr_local"   # Downloaded model weights
+  device: "auto"                    # "cpu", "cuda", or "auto"
+  torch_dtype: "float32"            # MedASR works best with float32
+  chunk_length_s: 20                # Recommended by MedASR docs
+  stride_length_s: 2                # Overlap between chunks
+  sample_rate: 16000                # MedASR requires 16kHz mono
+  use_pipeline: true                # true = pipeline API, false = direct model
+
+# Stage 2 – Gemma: Clinical Structurer (dedicated endpoint)
+structurer:
+  endpoint_url: null                # Loaded from env: STRUCTURER_ENDPOINT_URL
+  parameters:
+    max_new_tokens: 1024
+    temperature: 0.1
+    do_sample: false
+  timeout: 120
+
+# Stage 3 – MedGemma: Triage Reasoner (dedicated endpoint)
+triage:
+  endpoint_url: null                # Loaded from env: TRIAGE_ENDPOINT_URL
+  parameters:
+    max_new_tokens: 1024
+    temperature: 0.2
+    do_sample: false
+  timeout: 120
+
+# General settings
+general:
+  log_level: "INFO"
+  max_retries: 3
+  retry_delay_s: 2

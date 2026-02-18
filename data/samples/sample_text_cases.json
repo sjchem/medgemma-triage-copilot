@@ -1,0 +1,38 @@
+[
+  {
+    "id": "DEMO_001",
+    "description": "Classic acute MI - high urgency",
+    "input": {
+      "age": 58,
+      "sex": "male",
+      "chief_complaint": "Chest pain",
+      "symptoms": ["pressure-like chest pain", "shortness of breath", "diaphoresis"],
+      "duration": "45 minutes",
+      "risk_factors": ["hypertension", "smoker", "family history of CAD"]
+    }
+  },
+  {
+    "id": "DEMO_002",
+    "description": "Minor URI - low urgency",
+    "input": {
+      "age": 28,
+      "sex": "female",
+      "chief_complaint": "Cold symptoms",
+      "symptoms": ["runny nose", "mild cough", "sore throat"],
+      "duration": "3 days",
+      "risk_factors": []
+    }
+  },
+  {
+    "id": "DEMO_003",
+    "description": "Moderate abdominal pain",
+    "input": {
+      "age": 45,
+      "sex": "female",
+      "chief_complaint": "Abdominal pain",
+      "symptoms": ["right lower quadrant pain", "nausea", "low-grade fever"],
+      "duration": "12 hours",
+      "risk_factors": ["no prior surgeries"]
+    }
+  }
+]

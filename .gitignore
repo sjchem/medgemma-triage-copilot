@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────────────
+# MedGuard Triage Copilot – .gitignore
+# ──────────────────────────────────────────────────────────────
+
+# Environment / virtualenvs
+.env
+medgemma/
+venv/
+.venv/
+env/
+__pypackages__/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Downloaded model weights – never commit these to git
+# Re-download with: python3 -c "from models.asr.medasr_wrapper import MedASRWrapper; MedASRWrapper.download()"
+models/asr/medasr_local/
+*.safetensors
+*.kenlm
+
+# Data (keep samples, ignore large files)
+data/*.wav
+data/*.mp3
+*.model
+*.bin
+
+# Assets
+assets/*.wav
+assets/*.mp3

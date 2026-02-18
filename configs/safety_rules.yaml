@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────────────────────
+# MedGuard Triage Copilot – Safety Rules
+# ──────────────────────────────────────────────────────────────
+# Red flags and safety checks that override model reasoning.
+
+red_flags:
+  cardiac:
+    keywords:
+      - "chest pain"
+      - "crushing chest"
+      - "radiating pain"
+      - "jaw pain"
+      - "left arm pain"
+      - "diaphoresis"
+      - "chest tightness"
+    min_urgency: 5
+    escalation: "IMMEDIATE – activate cardiac protocol"
+
+  stroke:
+    keywords:
+      - "sudden weakness"
+      - "facial droop"
+      - "slurred speech"
+      - "vision loss"
+      - "worst headache"
+      - "sudden confusion"
+      - "unilateral numbness"
+    min_urgency: 5
+    escalation: "IMMEDIATE – stroke code"
+
+  respiratory:
+    keywords:
+      - "cannot breathe"
+      - "severe dyspnea"
+      - "stridor"
+      - "cyanosis"
+      - "respiratory distress"
+      - "choking"
+      - "anaphylaxis"
+    min_urgency: 5
+    escalation: "IMMEDIATE – airway management"
+
+  hemorrhage:
+    keywords:
+      - "uncontrolled bleeding"
+      - "hematemesis"
+      - "massive hemorrhage"
+      - "hemoptysis"
+      - "blood loss"
+      - "melena"
+    min_urgency: 5
+    escalation: "IMMEDIATE – hemorrhage protocol"
+
+  neurological:
+    keywords:
+      - "seizure"
+      - "loss of consciousness"
+      - "unresponsive"
+      - "altered mental status"
+      - "meningeal signs"
+      - "neck stiffness with fever"
+    min_urgency: 4
+    escalation: "URGENT – neurological assessment"
+
+  sepsis:
+    keywords:
+      - "high fever with tachycardia"
+      - "septic"
+      - "rigors"
+      - "hypotension with fever"
+      - "altered sensorium with infection"
+    min_urgency: 4
+    escalation: "URGENT – sepsis screening"
+
+  psychiatric:
+    keywords:
+      - "suicidal ideation"
+      - "self-harm"
+      - "homicidal"
+      - "acute psychosis"
+      - "wants to die"
+      - "suicide"
+    min_urgency: 5
+    escalation: "IMMEDIATE – psychiatric emergency"
+
+  pediatric:
+    keywords:
+      - "infant not breathing"
+      - "child unresponsive"
+      - "pediatric seizure"
+      - "bulging fontanelle"
+      - "non-blanching rash child"
+    min_urgency: 5
+    escalation: "IMMEDIATE – pediatric emergency"
+
+# Confidence thresholds
+confidence:
+  low_threshold: 0.4
+  medium_threshold: 0.65
+  high_threshold: 0.85
+  low_action: "Flag for senior clinician review – low confidence output"
+  medium_action: "Recommend clinician verification before acting"
+
+# Global safety guardrails
+guardrails:
+  never_diagnose: true
+  always_recommend_professional: true
+  max_urgency_override: true        # red flags override model urgency
+  require_safety_note: true
+  disclaimer: >
+    This is an AI-assisted triage tool. It does NOT provide medical diagnoses.
+    All outputs must be reviewed by qualified healthcare professionals.
+    In case of emergency, call emergency services immediately.

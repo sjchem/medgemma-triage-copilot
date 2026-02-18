@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "id": "LOW_001",
+      "description": "Minor upper respiratory infection",
+      "input": "32-year-old female with 3-day history of runny nose, mild sore throat, and occasional dry cough. No fever. No shortness of breath. No medical history. Vitals normal.",
+      "expected_urgency": 1,
+      "expected_red_flags": [],
+      "expected_symptoms": ["runny nose", "sore throat", "dry cough"]
+    },
+    {
+      "id": "LOW_002",
+      "description": "Mild ankle sprain",
+      "input": "22-year-old male twisted his right ankle playing basketball 2 hours ago. Mild swelling, can bear weight. No deformity. Denies numbness or tingling. No prior injuries.",
+      "expected_urgency": 2,
+      "expected_red_flags": [],
+      "expected_symptoms": ["ankle pain", "mild swelling"]
+    },
+    {
+      "id": "LOW_003",
+      "description": "Routine medication refill concern",
+      "input": "65-year-old female requesting refill discussion for her metformin and lisinopril. Feeling well. Blood sugar well controlled per home monitoring. No new symptoms.",
+      "expected_urgency": 1,
+      "expected_red_flags": [],
+      "expected_symptoms": []
+    },
+    {
+      "id": "LOW_004",
+      "description": "Mild allergic reaction",
+      "input": "40-year-old male with itchy rash on forearms after gardening. No facial swelling, no breathing difficulty. Started 4 hours ago. No known allergies. Vitals normal.",
+      "expected_urgency": 2,
+      "expected_red_flags": [],
+      "expected_symptoms": ["itchy rash"]
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# ──────────────────────────────────────────────────────────────
+# MedGuard Triage Copilot – Escalation Policy
+# ──────────────────────────────────────────────────────────────
+# Maps urgency levels to recommended clinical actions.
+
+urgency_levels:
+  1:
+    label: "Non-Urgent"
+    color: "green"
+    description: "Routine care appropriate. No immediate risk identified."
+    target_time: "Within 24–72 hours"
+    actions:
+      - "Schedule routine follow-up"
+      - "Provide self-care guidance"
+      - "Educate on warning signs to watch for"
+
+  2:
+    label: "Low Urgency"
+    color: "blue"
+    description: "Minor condition requiring attention but not time-critical."
+    target_time: "Within 4–24 hours"
+    actions:
+      - "Schedule same-day or next-day appointment"
+      - "Provide interim symptom management"
+      - "Reassess if symptoms worsen"
+
+  3:
+    label: "Moderate Urgency"
+    color: "yellow"
+    description: "Potentially serious. Requires timely evaluation."
+    target_time: "Within 1–4 hours"
+    actions:
+      - "Priority clinical evaluation"
+      - "Order baseline diagnostics"
+      - "Monitor vitals"
+      - "Reassess within 1 hour"
+
+  4:
+    label: "Urgent"
+    color: "orange"
+    description: "Serious condition with risk of deterioration."
+    target_time: "Within 15–60 minutes"
+    actions:
+      - "Immediate clinical assessment"
+      - "Initiate relevant protocol"
+      - "Continuous monitoring"
+      - "Prepare for possible escalation"
+
+  5:
+    label: "Critical / Resuscitation"
+    color: "red"
+    description: "Life-threatening. Immediate intervention required."
+    target_time: "Immediate (0 minutes)"
+    actions:
+      - "Activate emergency response"
+      - "Initiate life-saving intervention"
+      - "Continuous bedside monitoring"
+      - "Notify senior clinician and specialist teams"
+
+# Escalation triggers (automatic upgrade rules)
+auto_escalation:
+  - condition: "Multiple red flags detected"
+    action: "Upgrade urgency by +1 level (max 5)"
+  - condition: "Confidence score < 0.4"
+    action: "Flag for immediate senior review regardless of urgency"
+  - condition: "Vital signs outside critical range"
+    action: "Upgrade to urgency level 4 minimum"
+  - condition: "Pediatric patient with any red flag"
+    action: "Upgrade to urgency level 5"
