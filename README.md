@@ -13,7 +13,7 @@
 
 ## TL;DR for Judges
 
-MedGuard is a **production-ready, safety-first triage copilot** that takes any patient intake — voice, free text, or structured data — and outputs a **clinically-grounded urgency assessment** in seconds. It chains **three Google Health AI models** in a decoupled pipeline where a **deterministic safety layer can never be overridden by model output**.
+MedGuard is a **production-ready, safety-first triage copilot** that takes any patient intake — voice, free text, or structured data — and outputs a **clinically-grounded urgency assessment** in seconds. It chains **two Google Health AI models and one Gemma model** in a decoupled pipeline where a **deterministic safety layer can never be overridden by model output**.
 
 **Core differentiators:**
 
@@ -28,33 +28,6 @@ MedGuard is a **production-ready, safety-first triage copilot** that takes any p
 ## Architecture
 
 ```
- PATIENT INPUT
- ─────────────
-   Voice │ Text │ Structured JSON
-         │      │
-         ▼      │
-┌──────────────┐│
-│  Stage 1     ││     ┌──────────────────┐     ┌─────────────────────┐
-│  MedASR      │├────▶│  Stage 2         │────▶│  Stage 3            │
-│  (105M)      ││     │  Gemma 2-2B      │     │  MedGemma 4B-IT     │
-│  Speech→Text ││     │  Text→Structured │     │  Structured→Triage  │
-└──────────────┘│     └────────┬─────────┘     └────────┬────────────┘
-                │              │                        │
-                │     ┌────────▼─────────┐     ┌────────▼────────────┐
-                │     │  Uncertainty     │     │  Red Flag Engine    │
-                │     │  Engine          │     │  (Rule-based)       │
-                │     └──────────────────┘     │  + Risk Scorer      │
-                │                              └─────────────────────┘
-                │                                       │
-                │              ┌─────────────────────────┘
-                ▼              ▼
-         ┌──────────────────────────┐
-         │  FINAL TRIAGE OUTPUT     │
-         │  Urgency 1–5 + Actions   │
-         │  + Confidence + Red Flags│
-         └──────────────────────────┘
-```
-
 ![MedGuard Triage Copilot — System Architecture](assets/architecture.png)
 
 ### Google Models Used
