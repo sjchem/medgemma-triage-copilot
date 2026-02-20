@@ -1,4 +1,4 @@
-# 🏥 MedGuard Triage Copilot
+# 🏥 ![alt text](logo.png)MedGuard Triage Copilot
 
 ### Agentic, Multimodal Clinical Triage — Powered by Google's Health AI Stack
 
