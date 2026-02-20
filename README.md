@@ -27,7 +27,6 @@ MedGuard is a **production-ready, safety-first triage copilot** that takes any p
 
 ## Architecture
 
-```
 ![MedGuard Triage Copilot — System Architecture](assets/architecture.png)
 
 ### Google Models Used
