@@ -11,7 +11,7 @@
 
 ---
 
-## TL;DR for Judges
+## For Judges
 
 MedGuard is a **production-ready, safety-first triage copilot** that takes any patient intake — voice, free text, or structured data — and outputs a **clinically-grounded urgency assessment** in seconds. It chains **two Google Health AI models and one Gemma model** in a decoupled pipeline where a **deterministic safety layer can never be overridden by model output**.
 
