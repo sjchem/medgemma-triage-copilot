@@ -10,6 +10,12 @@ venv/
 env/
 __pypackages__/
 
+# GCP service account keys — NEVER commit these
+*.json
+!data/**/*.json
+!models/asr/medasr_local/*.json
+gcp/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -50,3 +56,6 @@ data/*.mp3
 # Assets
 assets/*.wav
 assets/*.mp3
+
+#gcloud
+service-account.json

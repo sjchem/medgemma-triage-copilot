@@ -21,9 +21,17 @@ requests>=2.31.0              # HTTP requests to endpoints
 fastapi>=0.111.0              # REST API framework
 uvicorn>=0.29.0               # ASGI server
 
+# --- Triage Reasoner: Vertex AI backend (Stage 3) ---
+google-cloud-aiplatform>=1.60.0   # Vertex AI SDK (includes vertexai module)
+
+# --- Local LLM (Ollama backend for Stage 2 structurer) ---
+langchain-ollama>=0.2.0       # LangChain Ollama integration (ChatOllama)
+langchain-core>=0.3.0         # LangChain message types (HumanMessage, SystemMessage)
+
 # --- Multimodal & UI ---
 Pillow>=10.0.0                # Image handling
-streamlit>=1.35.0             # Demo interface
+streamlit>=1.35.0             # Demo interface (legacy)
+gradio>=4.44.0                # Primary interactive UI (MedGuard frontend)
 
 # --- Evaluation & Utilities ---
 tqdm>=4.66.0                  # Progress bars

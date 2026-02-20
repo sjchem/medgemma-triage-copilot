@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 from core.router import MedGuardRouter
 from core.logging_utils import setup_logging

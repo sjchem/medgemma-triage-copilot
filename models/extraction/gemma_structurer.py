@@ -2,7 +2,12 @@
 MedGuard Triage Copilot – Gemma Clinical Structurer
 ====================================================
 Stage 2: Uses Gemma 2-2B Instruct to extract structured clinical entities
-from free-text patient intake. Handles:
+from free-text patient intake. Supports two backends:
+
+  - "hf_endpoint"  : Dedicated HuggingFace Inference Endpoint (cloud, slower)
+  - "ollama"       : Local Ollama server via LangChain (fast, fully offline)
+
+Handles:
   - Symptom extraction & normalization
   - Negation detection
   - Risk factor identification
@@ -22,45 +27,16 @@ logger = logging.getLogger(__name__)
 
 # ── Structurer System Prompt ────────────────────────────────────────────────
 
-STRUCTURER_SYSTEM_PROMPT = """You are a clinical data structurer. Your ONLY job is to extract and organize clinical information from patient intake text into a precise JSON structure.
+STRUCTURER_SYSTEM_PROMPT = """You are a clinical data structurer. Extract clinical information from patient intake text into JSON.
 
 RULES:
 1. Extract ONLY what is explicitly stated. Do NOT infer diagnoses.
-2. Mark negated symptoms clearly (e.g., "denies nausea" → negation: "negated").
-3. If information is missing or ambiguous, list it in "missing_information".
-4. Assign an extraction_confidence score (0.0–1.0) based on clarity of input.
-5. Normalize symptom names to standard clinical terminology where possible.
-6. Track uncertainty in "uncertainty_notes" for any ambiguous extractions.
+2. Mark negated symptoms (e.g., "denies nausea" → negation: "negated").
+3. List missing/ambiguous info in "missing_information".
+4. Assign extraction_confidence (0.0–1.0) based on input clarity.
 
-OUTPUT FORMAT – Return ONLY valid JSON with this exact structure:
-{
-  "chief_complaint": "string",
-  "symptoms": [
-    {
-      "name": "string",
-      "normalized_name": "string or null",
-      "body_region": "string or null",
-      "severity": "mild|moderate|severe or null",
-      "onset": "acute|gradual|sudden or null",
-      "duration": "string or null",
-      "negation": "affirmed|negated|uncertain",
-      "confidence": 0.0-1.0
-    }
-  ],
-  "vitals": {
-    "heart_rate": null, "blood_pressure_systolic": null,
-    "blood_pressure_diastolic": null, "respiratory_rate": null,
-    "temperature_c": null, "spo2": null, "gcs": null
-  },
-  "demographics": {"age": null, "sex": null, "weight_kg": null, "pregnant": null},
-  "medical_history": [{"name": "string", "category": "condition", "negation": "affirmed", "confidence": 1.0, "details": null}],
-  "medications": [{"name": "string", "category": "medication", "negation": "affirmed", "confidence": 1.0, "details": null}],
-  "allergies": [{"name": "string", "category": "allergy", "negation": "affirmed", "confidence": 1.0, "details": null}],
-  "risk_factors": ["string"],
-  "missing_information": ["string"],
-  "uncertainty_notes": [{"field": "string", "reason": "string", "impact": "low|medium|high"}],
-  "extraction_confidence": 0.0-1.0
-}"""
+Return ONLY valid JSON:
+{"chief_complaint": "str", "symptoms": [{"name": "str", "severity": "mild|moderate|severe|null", "duration": "str|null", "negation": "affirmed|negated|uncertain", "confidence": 0.0}], "vitals": {"heart_rate": null, "blood_pressure_systolic": null, "blood_pressure_diastolic": null, "respiratory_rate": null, "temperature_c": null, "spo2": null}, "demographics": {"age": null, "sex": null}, "medical_history": [{"name": "str", "negation": "affirmed"}], "medications": [{"name": "str"}], "allergies": [{"name": "str"}], "risk_factors": ["str"], "missing_information": ["str"], "extraction_confidence": 0.0}"""
 
 STRUCTURER_USER_PROMPT = """Extract structured clinical data from the following patient intake:
 
@@ -168,6 +144,25 @@ class GemmaStructurer:
 
         raise ValueError(f"Could not parse valid JSON from model output: {text[:300]}")
 
+    # ── Sanitise LLM output ──────────────────────────────────────────────
+
+    @staticmethod
+    def _sanitize_output(data: dict) -> dict:
+        """Remove None values from list fields to prevent downstream join() errors."""
+        _LIST_FIELDS = (
+            "symptoms", "medical_history", "medications",
+            "allergies", "risk_factors", "missing_information",
+            "uncertainty_notes", "recommended_actions",
+            "follow_up_questions", "risk_categories",
+        )
+        for key in _LIST_FIELDS:
+            val = data.get(key)
+            if isinstance(val, list):
+                data[key] = [item for item in val if item is not None]
+            elif val is None:
+                data[key] = []
+        return data
+
     # ── Public API ──────────────────────────────────────────────────────
 
     def structure(self, patient_input: str | dict) -> dict:
@@ -197,6 +192,7 @@ class GemmaStructurer:
         logger.debug("Structurer raw output: %s", raw_output[:500])
 
         structured = self._extract_json(raw_output)
+        structured = self._sanitize_output(structured)
 
         # Attach raw input for traceability
         structured["raw_input"] = input_text
@@ -228,3 +224,155 @@ class GemmaStructurer:
                 "extraction_confidence": 0.0,
                 "raw_input": input_text,
             }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Ollama Backend (local, LangChain-powered)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class OllamaStructurer:
+    """
+    Clinical structurer backed by a local Ollama server via LangChain.
+
+    Requires:
+      - Ollama running locally:  https://ollama.com/download
+      - Model pulled:            ollama pull gemma2:2b
+      - Package:                 pip install langchain-ollama
+
+    By default connects to http://localhost:11434.
+    Override via OLLAMA_BASE_URL env var or base_url= kwarg.
+
+    Speed advantage over HF endpoint:
+      - No network latency (fully local)
+      - No cold-start on shared-inference infrastructure
+      - Typical latency: 2–8 s on CPU, <2 s on GPU
+    """
+
+    def __init__(
+        self,
+        model: str = "gemma2:2b",
+        base_url: Optional[str] = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        **_,  # absorb extra kwargs from config dicts
+    ):
+        try:
+            from langchain_ollama import ChatOllama
+        except ImportError:
+            raise ImportError(
+                "langchain-ollama is required for the Ollama backend.\n"
+                "Install it with:  pip install langchain-ollama"
+            )
+
+        self.model = model
+        self._llm = ChatOllama(
+            model=model,
+            base_url=base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
+            temperature=temperature,
+            num_predict=max_tokens,
+            num_ctx=2048,       # Smaller context window = faster on CPU
+        )
+        logger.info("OllamaStructurer initialised — model=%s", model)
+
+    # ── Model call ──────────────────────────────────────────────────────
+
+    def _call_model(self, prompt: str) -> str:
+        """Send prompt to local Ollama via LangChain."""
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        messages = [
+            SystemMessage(content=STRUCTURER_SYSTEM_PROMPT),
+            HumanMessage(content=STRUCTURER_USER_PROMPT.format(patient_input=prompt)),
+        ]
+        response = self._llm.invoke(messages)
+        return response.content
+
+    # ── reuse JSON extractor and public API from GemmaStructurer ────────
+
+    @staticmethod
+    def _extract_json(text: str) -> dict:
+        return GemmaStructurer._extract_json(text)
+
+    def structure(self, patient_input: str | dict) -> dict:
+        if isinstance(patient_input, dict):
+            input_text = json.dumps(patient_input, indent=2)
+        else:
+            input_text = patient_input
+
+        raw_output = self._call_model(input_text)
+        logger.debug("OllamaStructurer raw output: %s", raw_output[:500])
+
+        structured = self._extract_json(raw_output)
+        structured = GemmaStructurer._sanitize_output(structured)
+        structured["raw_input"] = input_text
+        return structured
+
+    def structure_safe(self, patient_input: str | dict) -> dict:
+        try:
+            return self.structure(patient_input)
+        except Exception as e:
+            logger.error("OllamaStructurer failed: %s", e)
+            input_text = json.dumps(patient_input) if isinstance(patient_input, dict) else patient_input
+            return {
+                "chief_complaint": input_text[:200],
+                "symptoms": [],
+                "vitals": None,
+                "demographics": {},
+                "medical_history": [],
+                "medications": [],
+                "allergies": [],
+                "risk_factors": [],
+                "missing_information": ["OllamaStructurer extraction failed – raw input forwarded"],
+                "uncertainty_notes": [
+                    {"field": "all", "reason": str(e), "impact": "high"}
+                ],
+                "extraction_confidence": 0.0,
+                "raw_input": input_text,
+            }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Factory — selects backend from config
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_structurer(config: dict) -> "GemmaStructurer | OllamaStructurer":
+    """
+    Factory that returns the correct structurer based on config["backend"].
+
+    Supported values for config["backend"]:
+      "hf_endpoint"  →  GemmaStructurer  (HuggingFace Inference Endpoint, cloud)
+      "ollama"       →  OllamaStructurer (local Ollama via LangChain, fast)
+
+    Example model_config.yaml entries:
+
+      # cloud (default)
+      structurer:
+        backend: hf_endpoint
+        endpoint_url: null        # loaded from STRUCTURER_ENDPOINT_URL
+
+      # local Ollama
+      structurer:
+        backend: ollama
+        ollama_model: gemma2:2b   # or llama3.2:3b, mistral, phi3, etc.
+        ollama_base_url: http://localhost:11434
+        parameters:
+          temperature: 0.1
+          max_new_tokens: 1024
+    """
+    backend = config.get("backend", "hf_endpoint")
+
+    if backend == "ollama":
+        return OllamaStructurer(
+            model=config.get("ollama_model", "gemma2:2b"),
+            base_url=config.get("ollama_base_url"),
+            temperature=config.get("temperature", 0.1),
+            max_tokens=config.get("max_new_tokens", 512),
+        )
+
+    # default: HuggingFace dedicated endpoint
+    return GemmaStructurer(
+        endpoint_url=config.get("endpoint_url"),
+        max_new_tokens=config.get("max_new_tokens", 1024),
+        temperature=config.get("temperature", 0.1),
+        timeout=config.get("timeout", 120),
+    )

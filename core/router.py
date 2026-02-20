@@ -16,6 +16,8 @@ import yaml
 from pipelines.voice_pipeline import VoicePipeline
 from pipelines.text_pipeline import TextPipeline
 from pipelines.structured_pipeline import StructuredPipeline
+from models.extraction.gemma_structurer import create_structurer
+from models.triage.medgemma_reasoner import create_reasoner
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,23 @@ class MedGuardRouter:
         triage_cfg = self._build_triage_config()
         asr_cfg = self._build_asr_config()
 
+        # Instantiate structurer once — shared across all pipelines
+        structurer = create_structurer(structurer_cfg)
+        logger.info(
+            "Structurer backend: %s",
+            structurer_cfg.get("backend", "hf_endpoint"),
+        )
+
+        # Instantiate reasoner once — shared across all pipelines
+        reasoner = create_reasoner(triage_cfg)
+        logger.info(
+            "Triage reasoner backend: %s",
+            triage_cfg.get("backend", "hf_endpoint"),
+        )
+
         kwargs = {
+            "structurer": structurer,
+            "reasoner": reasoner,
             "structurer_config": structurer_cfg,
             "triage_config": triage_cfg,
             "asr_config": asr_cfg,
@@ -52,10 +70,13 @@ class MedGuardRouter:
         s = self.config.get("structurer", {})
         params = s.get("parameters", {})
         return {
-            "model_id": s.get("model_id", "google/gemma-7b-it"),
+            "backend": s.get("backend", "hf_endpoint"),
+            # ollama
+            "ollama_model": s.get("ollama_model", "gemma2:2b"),
+            "ollama_base_url": s.get("ollama_base_url", "http://localhost:11434"),
+            # hf_endpoint (legacy)
             "endpoint_url": s.get("endpoint_url"),
-            "use_inference_api": s.get("use_inference_api", True),
-            "max_new_tokens": params.get("max_new_tokens", 1024),
+            "max_new_tokens": params.get("max_new_tokens", 512),
             "temperature": params.get("temperature", 0.1),
             "timeout": s.get("timeout", 120),
         }
@@ -64,12 +85,17 @@ class MedGuardRouter:
         t = self.config.get("triage", {})
         params = t.get("parameters", {})
         return {
-            "model_id": t.get("model_id", "google/medgemma-4b-it"),
-            "endpoint_url": t.get("endpoint_url"),
-            "use_inference_api": t.get("use_inference_api", True),
+            "backend": t.get("backend", "hf_endpoint"),
+            # vertex_ai
+            "vertex_model":       t.get("vertex_model", "medgemma-1.5-4b-it"),
+            "vertex_location":    t.get("vertex_location", "europe-west4"),
+            "vertex_endpoint_id": t.get("vertex_endpoint_id"),  # deployed endpoint ID
+            "vertex_project":     t.get("vertex_project"),       # falls back to env var
+            # hf_endpoint (legacy)
+            "endpoint_url":  t.get("endpoint_url"),
             "max_new_tokens": params.get("max_new_tokens", 1024),
-            "temperature": params.get("temperature", 0.2),
-            "timeout": t.get("timeout", 120),
+            "temperature":    params.get("temperature", 0.2),
+            "timeout":        t.get("timeout", 120),
         }
 
     def _build_asr_config(self) -> dict:

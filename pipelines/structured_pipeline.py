@@ -10,9 +10,9 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
-from models.triage.medgemma_reasoner import MedGemmaReasoner
+from models.triage.medgemma_reasoner import MedGemmaReasoner, VertexAIReasoner, create_reasoner
 from models.triage.red_flag_engine import RedFlagEngine
 from models.triage.risk_scorer import RiskScorer
 
@@ -29,14 +29,12 @@ class StructuredPipeline:
 
     def __init__(
         self,
-        reasoner: Optional[MedGemmaReasoner] = None,
+        reasoner: Optional[Union[MedGemmaReasoner, VertexAIReasoner]] = None,
         red_flag_engine: Optional[RedFlagEngine] = None,
         risk_scorer: Optional[RiskScorer] = None,
         **kwargs,
     ):
-        self.reasoner = reasoner or MedGemmaReasoner(
-            **kwargs.get("triage_config", {})
-        )
+        self.reasoner = reasoner or create_reasoner(kwargs.get("triage_config", {}))
         self.red_flag_engine = red_flag_engine or RedFlagEngine()
         self.risk_scorer = risk_scorer or RiskScorer()
 

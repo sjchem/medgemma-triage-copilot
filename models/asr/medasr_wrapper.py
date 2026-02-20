@@ -88,11 +88,16 @@ class MedASRWrapper:
             source = self._model_source()
             device = self._resolve_device()
 
+            # local_files_only=True when source is an on-disk path — prevents
+            # transformers from making any network calls to verify versions.
+            is_local = source != self.model_id
+
             logger.info("Loading MedASR pipeline from %s on %s …", source, device)
             self._pipe = hf_pipeline(
                 "automatic-speech-recognition",
                 model=source,
                 device=device,
+                local_files_only=is_local,
             )
             logger.info("MedASR pipeline ready.")
         except ImportError as exc:
@@ -104,12 +109,16 @@ class MedASRWrapper:
             ) from exc
 
     def _transcribe_pipeline(self, audio_path: str) -> dict:
-        """Transcribe using the pipeline API."""
+        """Transcribe using the pipeline API with proper CTC decoding."""
         self._load_pipeline()
+        # CTC models (like MedASR / Conformer-CTC) require return_timestamps
+        # to be the string 'word' or 'char' — passing True raises a ValueError.
+        # 'word' gives word-level timestamps and lets the pipeline stitch chunks.
         result = self._pipe(
             audio_path,
             chunk_length_s=self.chunk_length_s,
             stride_length_s=self.stride_length_s,
+            return_timestamps="word",
         )
         return result
 
@@ -166,6 +175,75 @@ class MedASRWrapper:
 
         return {"text": decoded, "duration_s": duration_s}
 
+    # ── CTC post-processing ─────────────────────────────────────────────
+
+    @staticmethod
+    def _ctc_clean(text: str) -> str:
+        """
+        Remove CTC artefacts from raw model output:
+          1. Strip special tokens: <epsilon>, <s>, </s>, <pad>, <unk>
+          2. Collapse consecutive duplicate characters (char-level CTC repeat)
+          3. Remove consecutive duplicate words (chunk-overlap word repeat)
+          4. Fix chunk-boundary stitching artefacts (e.g. "feverver" → "fever")
+          5. Normalise whitespace
+        """
+        import re
+
+        # 1. Remove special tokens
+        text = re.sub(r'<[^>]+>', '', text)
+        text = re.sub(r'[\u25a1\u2581]', ' ', text)  # □ ▁ → space
+
+        # 2. Collapse consecutive duplicate characters (within each word)
+        #    e.g. "ffeevveerr" → "fever", "hhaavvee" → "have"
+        def _collapse_word(w: str) -> str:
+            out, prev = [], None
+            for ch in w:
+                if ch != prev:
+                    out.append(ch)
+                prev = ch
+            return ''.join(out)
+
+        words = text.split()
+        words = [_collapse_word(w) for w in words]
+
+        # 3. Remove consecutive duplicate words (chunk-overlap artefact)
+        #    e.g. ["high", "high", "fever"] → ["high", "fever"]
+        deduped = []
+        for w in words:
+            if not deduped or w.lower() != deduped[-1].lower():
+                deduped.append(w)
+        words = deduped
+
+        # 4. Fix chunk-boundary suffix overlap
+        #    e.g. "feverver" → collapse by finding longest suffix of w[i-1]
+        #    that matches a prefix of w[i] and is longer than 2 chars.
+        fixed = [words[0]] if words else []
+        for w in words[1:]:
+            prev_w = fixed[-1]
+            merged = False
+            # Check if end of prev_w overlaps with start of current w
+            for overlap_len in range(min(len(prev_w), len(w)) - 1, 1, -1):
+                if prev_w.lower().endswith(w[:overlap_len].lower()):
+                    # Replace prev word with the properly merged version
+                    fixed[-1] = prev_w  # keep as-is; the overlap is artefact — drop current suffix
+                    fixed[-1] = prev_w[:len(prev_w) - overlap_len] + w
+                    merged = True
+                    break
+                if w.lower().startswith(prev_w[-overlap_len:].lower()):
+                    fixed[-1] = prev_w[:-overlap_len] + w[:overlap_len]
+                    merged = True
+                    break
+            if not merged:
+                fixed.append(w)
+
+        text = ' '.join(fixed)
+
+        # 5. Normalise whitespace and capitalise first letter
+        text = re.sub(r'\s+', ' ', text).strip()
+        if text:
+            text = text[0].upper() + text[1:]
+        return text
+
     # ── Public API ──────────────────────────────────────────────────────
 
     def transcribe(self, audio_input: Union[str, Path]) -> dict:
@@ -207,7 +285,7 @@ class MedASRWrapper:
                 })
 
         return {
-            "transcript": raw.get("text", ""),
+            "transcript": self._ctc_clean(raw.get("text", "")),
             "segments": segments,
             "language": "en",
             "model_id": self.model_id,

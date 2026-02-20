@@ -85,22 +85,41 @@ class RedFlagEngine:
 
     @staticmethod
     def _build_searchable_text(data: dict) -> str:
-        """Flatten structured data into searchable text."""
-        parts = []
+        """Flatten structured data into searchable text.
 
-        parts.append(data.get("chief_complaint", ""))
+        Also includes raw_input as a safety net — if the structurer missed
+        extracting a symptom, the keyword scan can still catch it from the
+        original patient text.
+        """
+        parts: list[str] = []
 
-        for symptom in data.get("symptoms", []):
+        # Primary: structured fields (most reliable)
+        parts.append(str(data.get("chief_complaint", "") or ""))
+
+        for symptom in data.get("symptoms", []) or []:
+            if not isinstance(symptom, dict):
+                parts.append(str(symptom))
+                continue
             if symptom.get("negation") != "negated":
-                parts.append(symptom.get("name", ""))
-                parts.append(symptom.get("normalized_name", "") or "")
-                parts.append(symptom.get("severity", "") or "")
+                parts.append(str(symptom.get("name", "") or ""))
+                parts.append(str(symptom.get("normalized_name", "") or ""))
+                parts.append(str(symptom.get("severity", "") or ""))
 
-        for rf in data.get("risk_factors", []):
-            parts.append(rf)
+        for rf in data.get("risk_factors", []) or []:
+            if rf is not None:
+                parts.append(str(rf))
 
-        for entity in data.get("medical_history", []):
+        for entity in data.get("medical_history", []) or []:
+            if not isinstance(entity, dict):
+                parts.append(str(entity) if entity else "")
+                continue
             if entity.get("negation") != "negated":
-                parts.append(entity.get("name", ""))
+                parts.append(str(entity.get("name", "") or ""))
 
-        return " ".join(parts).lower()
+        # Safety net: also scan the original raw text in case structurer
+        # missed or mis-classified a critical symptom
+        raw = data.get("raw_input", "")
+        if isinstance(raw, str):
+            parts.append(raw)
+
+        return " ".join(str(p) for p in parts if p is not None).lower()

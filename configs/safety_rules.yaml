@@ -69,6 +69,10 @@ red_flags:
       - "rigors"
       - "hypotension with fever"
       - "altered sensorium with infection"
+      - "fever above 39"
+      - "fever above 40"
+      - "hyperpyrexia"
+      - "high fever with chills"
     min_urgency: 4
     escalation: "URGENT – sepsis screening"
 

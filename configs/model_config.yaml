@@ -15,18 +15,38 @@ asr:
   sample_rate: 16000                # MedASR requires 16kHz mono
   use_pipeline: true                # true = pipeline API, false = direct model
 
-# Stage 2 – Gemma: Clinical Structurer (dedicated endpoint)
+# Stage 2 – Gemma: Clinical Structurer
+# backend options:
+#   "hf_endpoint"  – HuggingFace Inference Endpoint (cloud, set STRUCTURER_ENDPOINT_URL)
+#   "ollama"       – Local Ollama via LangChain  (fast, fully offline)
 structurer:
-  endpoint_url: null                # Loaded from env: STRUCTURER_ENDPOINT_URL
+  backend: "ollama"                  # Switch to "hf_endpoint" for cloud
+  # ── Ollama settings (used when backend: ollama) ──
+  ollama_model: "gemma2:2b"          # Any model pulled in Ollama
+  ollama_base_url: "http://localhost:11434"
+  # ── HF Endpoint settings (used when backend: hf_endpoint) ──
+  endpoint_url: null                 # Loaded from env: STRUCTURER_ENDPOINT_URL
   parameters:
-    max_new_tokens: 1024
+    max_new_tokens: 512
     temperature: 0.1
     do_sample: false
   timeout: 120
 
-# Stage 3 – MedGemma: Triage Reasoner (dedicated endpoint)
+# Stage 3 – MedGemma: Triage Reasoner
+# backend options:
+#   "vertex_ai"    – Google Cloud Vertex AI (recommended)
+#                    Set vertex_endpoint_id → uses your deployed endpoint
+#                    Leave vertex_endpoint_id blank → uses Model Garden API
+#   "hf_endpoint"  – HuggingFace Dedicated Endpoint (legacy, slow)
 triage:
-  endpoint_url: null                # Loaded from env: TRIAGE_ENDPOINT_URL
+  backend: "vertex_ai"
+  # ── Dedicated deployed endpoint (your current setup) ──
+  vertex_model: "medgemma-1.5-4b-it"
+  vertex_location: "europe-west4"
+  vertex_endpoint_id: "mg-endpoint-300c3b17-8504-4683-9d8d-5a806ea762db"
+  # vertex_project is loaded from env: GOOGLE_CLOUD_PROJECT
+  # ── HF Endpoint settings (used when backend: hf_endpoint) ──
+  endpoint_url: null                       # Loaded from env: TRIAGE_ENDPOINT_URL
   parameters:
     max_new_tokens: 1024
     temperature: 0.2
