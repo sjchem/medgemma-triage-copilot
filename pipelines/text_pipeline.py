@@ -48,6 +48,20 @@ class TextPipeline:
         """
         errors = []
 
+        # ── PII masking (for text entered directly, not via voice) ──
+        pii_masked = False
+        if isinstance(patient_text, str):
+            try:
+                from core.pii_masking import PIIMasker
+                masker = PIIMasker(enabled=True)
+                pii_result = masker.mask(patient_text)
+                if pii_result.pii_found:
+                    logger.info("PII masking (text pipeline): %s", pii_result.summary)
+                    patient_text = pii_result.masked_text
+                    pii_masked = True
+            except Exception as exc:
+                logger.debug("PII masking unavailable: %s", exc)
+
         # Stage 2: Extraction
         logger.info("Text pipeline: extracting structured data")
         try:
@@ -65,5 +79,6 @@ class TextPipeline:
         result["input_type"] = "text"
         result["structured_data"] = structured
         result["pipeline_errors"] = errors + result.get("pipeline_errors", [])
+        result["pii_masked"] = pii_masked
 
         return result

@@ -111,15 +111,20 @@ class MedASRWrapper:
     def _transcribe_pipeline(self, audio_path: str) -> dict:
         """Transcribe using the pipeline API with proper CTC decoding."""
         self._load_pipeline()
-        # CTC models (like MedASR / Conformer-CTC) require return_timestamps
-        # to be the string 'word' or 'char' — passing True raises a ValueError.
-        # 'word' gives word-level timestamps and lets the pipeline stitch chunks.
+        # CTC / Conformer-CTC models do NOT reliably support word-level
+        # timestamps via the HF pipeline — requesting return_timestamps="word"
+        # can trigger a TypeError inside the postprocessor.  We omit
+        # return_timestamps entirely so the pipeline just returns {"text": ...}.
         result = self._pipe(
             audio_path,
             chunk_length_s=self.chunk_length_s,
             stride_length_s=self.stride_length_s,
-            return_timestamps="word",
         )
+        # Normalise: pipeline may return a list (batched) or a dict.
+        if isinstance(result, list):
+            result = result[0] if result else {"text": ""}
+        if isinstance(result, str):
+            result = {"text": result}
         return result
 
     # ── Direct model (more control) ─────────────────────────────────────
@@ -180,22 +185,33 @@ class MedASRWrapper:
     @staticmethod
     def _ctc_clean(text: str) -> str:
         """
-        Remove CTC artefacts from raw model output:
-          1. Strip special tokens: <epsilon>, <s>, </s>, <pad>, <unk>
-          2. Collapse consecutive duplicate characters (char-level CTC repeat)
-          3. Remove consecutive duplicate words (chunk-overlap word repeat)
-          4. Fix chunk-boundary stitching artefacts (e.g. "feverver" → "fever")
-          5. Normalise whitespace
+        Clean CTC decoder output artifacts.
+
+        CTC (Connectionist Temporal Classification) models can produce:
+          - Consecutive duplicate characters at frame boundaries
+          - Repeated syllable / sub-word patterns from chunk overlaps
+          - Consecutive duplicate words from overlapping chunk inference
+
+        Steps:
+          1. Strip special tokens (<epsilon>, <pad>, ▁, □, etc.)
+          2. Collapse consecutive duplicate characters within each word.
+             May over-collapse legitimate doubles (e.g. "blood" → "blod"),
+             but the downstream LLM is robust to minor spelling artefacts
+             and leaving raw CTC repeats would be far worse.
+          3. Collapse repeated sub-word patterns (syllable-level artifacts)
+             only for words > 7 chars after step 2, to avoid false positives
+             on normal words like "murmur" or "banana".
+          4. Remove consecutive duplicate words.
+          5. Normalise whitespace and capitalise first letter.
         """
         import re
 
-        # 1. Remove special tokens
+        # 1. Remove special tokens and sentencepiece markers
         text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'[\u25a1\u2581]', ' ', text)  # □ ▁ → space
 
-        # 2. Collapse consecutive duplicate characters (within each word)
-        #    e.g. "ffeevveerr" → "fever", "hhaavvee" → "have"
-        def _collapse_word(w: str) -> str:
+        # 2. Collapse consecutive duplicate characters within each word
+        def _collapse_chars(w: str) -> str:
             out, prev = [], None
             for ch in w:
                 if ch != prev:
@@ -204,39 +220,27 @@ class MedASRWrapper:
             return ''.join(out)
 
         words = text.split()
-        words = [_collapse_word(w) for w in words]
+        words = [_collapse_chars(w) for w in words]
 
-        # 3. Remove consecutive duplicate words (chunk-overlap artefact)
-        #    e.g. ["high", "high", "fever"] → ["high", "fever"]
-        deduped = []
+        # 3. Collapse repeated sub-word patterns (chunk-boundary artifacts)
+        #    e.g. "feverver" → "fever", "vomititing" → "vomiting"
+        #    Only for words still > 7 chars to protect normal words.
+        def _collapse_syllables(w: str) -> str:
+            if len(w) <= 7:
+                return w
+            for plen in range(5, 1, -1):
+                w = re.sub(r'(.{' + str(plen) + r'})\1+', r'\1', w)
+            return w
+
+        words = [_collapse_syllables(w) for w in words]
+
+        # 4. Remove consecutive duplicate words (chunk-overlap artefact)
+        deduped: list[str] = []
         for w in words:
             if not deduped or w.lower() != deduped[-1].lower():
                 deduped.append(w)
-        words = deduped
 
-        # 4. Fix chunk-boundary suffix overlap
-        #    e.g. "feverver" → collapse by finding longest suffix of w[i-1]
-        #    that matches a prefix of w[i] and is longer than 2 chars.
-        fixed = [words[0]] if words else []
-        for w in words[1:]:
-            prev_w = fixed[-1]
-            merged = False
-            # Check if end of prev_w overlaps with start of current w
-            for overlap_len in range(min(len(prev_w), len(w)) - 1, 1, -1):
-                if prev_w.lower().endswith(w[:overlap_len].lower()):
-                    # Replace prev word with the properly merged version
-                    fixed[-1] = prev_w  # keep as-is; the overlap is artefact — drop current suffix
-                    fixed[-1] = prev_w[:len(prev_w) - overlap_len] + w
-                    merged = True
-                    break
-                if w.lower().startswith(prev_w[-overlap_len:].lower()):
-                    fixed[-1] = prev_w[:-overlap_len] + w[:overlap_len]
-                    merged = True
-                    break
-            if not merged:
-                fixed.append(w)
-
-        text = ' '.join(fixed)
+        text = ' '.join(deduped)
 
         # 5. Normalise whitespace and capitalise first letter
         text = re.sub(r'\s+', ' ', text).strip()
@@ -273,23 +277,47 @@ class MedASRWrapper:
         else:
             raw = self._transcribe_direct(audio_path)
 
-        # Normalize output
+        # Normalize output — guard against unexpected types
         segments = []
-        if "chunks" in raw:
-            for chunk in raw["chunks"]:
-                ts = chunk.get("timestamp", [None, None])
-                segments.append({
-                    "text": chunk.get("text", ""),
-                    "start_time": ts[0] if ts else None,
-                    "end_time": ts[1] if ts else None,
-                })
+        if isinstance(raw, str):
+            raw = {"text": raw}
+        if isinstance(raw, list):
+            raw = raw[0] if raw else {"text": ""}
+
+        chunks = raw.get("chunks") if isinstance(raw, dict) else None
+        if chunks and isinstance(chunks, list):
+            for chunk in chunks:
+                if isinstance(chunk, dict):
+                    ts = chunk.get("timestamp", [None, None])
+                    segments.append({
+                        "text": chunk.get("text", ""),
+                        "start_time": ts[0] if ts else None,
+                        "end_time": ts[1] if ts else None,
+                    })
+
+        transcript_raw = raw.get("text", "") if isinstance(raw, dict) else str(raw)
+        cleaned = self._ctc_clean(transcript_raw)
+
+        # ── PII masking (runs after CTC clean, before downstream) ──
+        pii_result = None
+        try:
+            from core.pii_masking import PIIMasker
+            masker = PIIMasker(enabled=True)
+            pii_result = masker.mask(cleaned)
+            if pii_result.pii_found:
+                logger.info("PII masking: %s", pii_result.summary)
+            cleaned = pii_result.masked_text
+        except Exception as exc:
+            logger.debug("PII masking unavailable: %s", exc)
 
         return {
-            "transcript": self._ctc_clean(raw.get("text", "")),
+            "transcript": cleaned,
             "segments": segments,
             "language": "en",
             "model_id": self.model_id,
-            "duration_s": raw.get("duration_s"),
+            "duration_s": raw.get("duration_s") if isinstance(raw, dict) else None,
+            "pii_masked": pii_result.pii_found if pii_result else False,
+            "pii_detections": pii_result.detections if pii_result else [],
         }
 
     def transcribe_from_bytes(self, audio_bytes: bytes, filename: str = "input.wav") -> dict:

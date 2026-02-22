@@ -45,6 +45,7 @@ MedGuard is a **production-ready, safety-first triage copilot** that takes any p
 | **Fail-safe defaults** | If any model errors or returns invalid output, the system defaults to **Level 4 (Urgent)** and routes to a human clinician |
 | **Uncertainty propagation** | Extraction confidence × triage confidence = blended score; anything below 0.4 triggers automatic senior-review escalation |
 | **Decoupled reasoning** | Language understanding (Stage 2) is separated from medical reasoning (Stage 3) — errors in one don't cascade silently |
+| **PII masking** | All patient intake (voice & text) is automatically scanned for personally identifiable information — names, phone numbers, emails, SSNs, dates of birth, addresses, credit cards, and IPs are redacted to `[NAME]`, `[PHONE]`, etc. **before** any data enters the clinical pipeline. Fully offline, regex-based, zero-dependency |
 
 ---
 
@@ -112,10 +113,11 @@ medguard-triage-copilot/
 ├── core/
 │   ├── router.py                 # Auto-routing entrypoint
 │   ├── validation.py             # Schema validation
+│   ├── pii_masking.py            # PII detection & redaction (names, phones, emails, SSN, …)
 │   └── logging_utils.py          # Structured logging
 ├── configs/
 │   ├── model_config.yaml         # Model IDs, endpoints, parameters
-│   ├── safety_rules.yaml         # 50+ red-flag keywords & thresholds
+│   ├── safety_rules.yaml         # 50+ red-flag keywords, thresholds & PII masking config
 │   └── escalation_policy.yaml    # Urgency → clinical action mapping
 ├── evaluation/
 │   ├── triage_metrics.py         # Urgency accuracy, safety score
@@ -163,6 +165,7 @@ results = run_benchmark(pipeline, cases)
 | 🔒 **Fail-safe Default** | Any model failure → Level 4 (Urgent) + clinician routing |
 | 📈 **Confidence Blending** | Extraction × triage confidence, propagated end-to-end |
 | 🚨 **Low-confidence Escalation** | Blended score < 0.4 → automatic senior review flag |
+| 🔐 **PII Masking** | Names, phones, emails, SSNs, DOBs, addresses, cards & IPs auto-redacted before pipeline processing — pure regex, fully offline, configurable per-category in `safety_rules.yaml` |
 | ⚠️ **Disclaimer** | Every output carries a non-diagnosis disclaimer |
 
 ---

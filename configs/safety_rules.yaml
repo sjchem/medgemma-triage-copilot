@@ -105,6 +105,19 @@ confidence:
   low_action: "Flag for senior clinician review – low confidence output"
   medium_action: "Recommend clinician verification before acting"
 
+# PII masking – redact personal info before clinical processing
+pii_masking:
+  enabled: true
+  categories:
+    - phone
+    - email
+    - ssn
+    - card
+    - dob
+    - ip
+    - address
+    - name
+
 # Global safety guardrails
 guardrails:
   never_diagnose: true

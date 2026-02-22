@@ -859,73 +859,40 @@ _DEMO_MODE: bool = False
 
 def transcribe_audio(audio_path: str | None) -> tuple[str, str]:
     """
-    Transcribe *audio_path* to text.
+    Transcribe *audio_path* to text using Google MedASR.
 
-    Priority chain (first success wins):
-      1. Google MedASR (local weights)  — medical vocab, fully offline, no token needed
-      2. openai-whisper tiny            — local, offline, general vocab
-      3. SpeechRecognition + Google     — network fallback
+    MedASR (Conformer CTC, 105M params) is purpose-built for medical
+    dictation and always used — no Whisper / SpeechRecognition fallback.
 
     Returns (transcript_text, status_html)
     """
     if not audio_path:
         return "", ""
 
-    # ── Stage 1: MedASR local model (best medical accuracy, fully offline) ──
-    # Always attempted first — model is pre-downloaded to models/asr/medasr_local/
-    # No HF token needed; local_files_only prevents any network calls.
-    hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
-    if not _DEMO_MODE:
-        try:
-            from models.asr.medasr_wrapper import MedASRWrapper, _DEFAULT_LOCAL_DIR
-            logger.info("Transcribing with MedASR (local) …")
-            asr = MedASRWrapper(local_dir=str(_DEFAULT_LOCAL_DIR))
-            result = asr.transcribe(audio_path)
-            text = result.get("transcript", "").strip()
-            if text:
-                status = _transcribe_status_html(
-                    "✅ Transcribed via MedGemma MedASR (medical-grade)", "#0F3460"
-                )
-                return text, status
-        except Exception as e:
-            logger.warning("MedASR transcription failed: %s", e)
-
-    # ── Stage 2: Whisper tiny (local, offline) ─────────────────────────
     try:
-        import whisper  # openai-whisper
-        logger.info("Transcribing with Whisper (tiny) …")
-        model = whisper.load_model("tiny")   # ~39 MB, fast on CPU
-        result = model.transcribe(audio_path, fp16=False)
-        text = result.get("text", "").strip()
+        from models.asr.medasr_wrapper import MedASRWrapper, _DEFAULT_LOCAL_DIR
+        logger.info("Transcribing with MedASR (local) …")
+        asr = MedASRWrapper(local_dir=str(_DEFAULT_LOCAL_DIR))
+        result = asr.transcribe(audio_path)
+        text = result.get("transcript", "").strip()
         if text:
             status = _transcribe_status_html(
-                "⚠️ Transcribed via Whisper (MedASR unavailable)", "#27AE60"
+                "✅ Transcribed via MedGemma MedASR (medical-grade)", "#0F3460"
             )
             return text, status
+        # Model returned empty text
+        status = _transcribe_status_html(
+            "⚠️ MedASR returned empty transcript — please try again or type manually.",
+            "#E67E22",
+        )
+        return "", status
     except Exception as e:
-        logger.warning("Whisper transcription failed: %s", e)
-
-    # ── Stage 3: SpeechRecognition + Google free API ───────────────────
-    try:
-        import speech_recognition as sr
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(audio_path) as source:
-            audio_data = recognizer.record(source)
-        text = recognizer.recognize_google(audio_data)
-        if text:
-            status = _transcribe_status_html(
-                "✅ Transcribed via Google Speech API", "#27AE60"
-            )
-            return text, status
-    except Exception as e:
-        logger.warning("SpeechRecognition fallback failed: %s", e)
-
-    status = _transcribe_status_html(
-        "⚠️ Could not transcribe — type your complaint manually, "
-        "or set HF_TOKEN in .env for MedASR.",
-        "#E67E22",
-    )
-    return "", status
+        logger.exception("MedASR transcription failed")
+        status = _transcribe_status_html(
+            f"❌ MedASR error: {e}. Please type your complaint manually.",
+            "#C0392B",
+        )
+        return "", status
 
 
 def _transcribe_status_html(msg: str, color: str) -> str:
@@ -986,8 +953,8 @@ def build_app() -> gr.Blocks:
                         )
                         asr_status = gr.HTML(value="", visible=True)
                         gr.Markdown(
-                            "_Audio is transcribed locally by Whisper and pasted "
-                            "into the text box above. Review before clicking Analyze._",
+                            "_Audio is transcribed locally by MedASR (medical-grade) "
+                            "and pasted into the text box above. Review before clicking Analyze._",
                             elem_classes="mg-hint",
                         )
                         btn_analyze = gr.Button(
