@@ -370,7 +370,7 @@ class VertexAIReasoner:
         )
 
     def _call_dedicated_endpoint(self, prompt: str) -> str:
-        """Call the deployed Vertex AI endpoint via predict()."""
+        """Call the deployed Vertex AI endpoint via predict() with timeout."""
         self._ensure_sdk()
         instances = [{
             "prompt": self._format_prompt(prompt),
@@ -380,13 +380,43 @@ class VertexAIReasoner:
         logger.info(
             "Calling dedicated Vertex endpoint %s …", self.endpoint_id
         )
-        response = self._endpoint.predict(instances=instances)
 
-        # Handle both string and dict prediction formats
-        pred = response.predictions[0]
-        if isinstance(pred, dict):
-            return pred.get("content", pred.get("output", str(pred)))
-        return str(pred)
+        import concurrent.futures
+
+        timeout_sec = 120  # hard timeout for each attempt
+        max_retries = 2
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(self._endpoint.predict, instances=instances)
+                    response = future.result(timeout=timeout_sec)
+
+                pred = response.predictions[0]
+                if isinstance(pred, dict):
+                    return pred.get("content", pred.get("output", str(pred)))
+                return str(pred)
+
+            except concurrent.futures.TimeoutError:
+                logger.warning(
+                    "Vertex endpoint timed out after %ds (attempt %d/%d)",
+                    timeout_sec, attempt, max_retries,
+                )
+                if attempt < max_retries:
+                    logger.info("Retrying — endpoint may be scaling up…")
+                    continue
+                raise TimeoutError(
+                    f"Vertex AI endpoint did not respond within "
+                    f"{timeout_sec}s after {max_retries} attempts. "
+                    f"The endpoint may be scaling up — try again in ~60s."
+                )
+            except Exception as e:
+                logger.error("Vertex endpoint error (attempt %d/%d): %s", attempt, max_retries, e)
+                if attempt < max_retries:
+                    import time
+                    time.sleep(5)
+                    continue
+                raise
 
     def _call_model_garden(self, prompt: str) -> str:
         """Call the Model Garden GenerativeModel."""

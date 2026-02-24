@@ -40,11 +40,11 @@ structurer:
 #   "hf_endpoint"  – HuggingFace Dedicated Endpoint (legacy, slow)
 triage:
   backend: "vertex_ai"
-  # ── Dedicated deployed endpoint (your current setup) ──
+  # ── Dedicated deployed endpoint ──
   vertex_model: "medgemma-1.5-4b-it"
   vertex_location: "europe-west4"
-  vertex_endpoint_id: "mg-endpoint-300c3b17-8504-4683-9d8d-5a806ea762db"
-  # vertex_project is loaded from env: GOOGLE_CLOUD_PROJECT
+  vertex_endpoint_id: "mg-endpoint-07135ea0-b192-4258-b45c-2cb63c5d3bde"
+  vertex_project: null  # Loaded from env: GOOGLE_CLOUD_PROJECT
   # ── HF Endpoint settings (used when backend: hf_endpoint) ──
   endpoint_url: null                       # Loaded from env: TRIAGE_ENDPOINT_URL
   parameters:

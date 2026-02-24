@@ -135,6 +135,34 @@ class RiskScorer:
         level_info = levels.get(final_urgency, {})
         result["urgency_label"] = level_info.get("label", f"Level {final_urgency}")
 
+        # ── Ensure recommended_actions is populated ─────────────────────
+        existing_actions = result.get("recommended_actions") or []
+        if not existing_actions:
+            # 1. Gather actions from red flags (model + rule-based)
+            flag_actions: List[str] = []
+            for f in result.get("red_flags", []):
+                action = f.get("recommended_action", "").strip()
+                if action:
+                    flag_actions.append(action)
+
+            # 2. Gather actions from escalation policy for this urgency
+            policy_actions: List[str] = list(level_info.get("actions", []))
+
+            # 3. Merge: flag-specific actions first, then policy actions
+            merged: List[str] = []
+            seen_lower: set = set()
+            for a in flag_actions + policy_actions:
+                key = a.strip().lower()
+                if key and key not in seen_lower:
+                    seen_lower.add(key)
+                    merged.append(a)
+            result["recommended_actions"] = merged
+            if merged:
+                logger.info(
+                    "Populated %d recommended actions from red flags + escalation policy",
+                    len(merged),
+                )
+
         # ── Attach safety note ──────────────────────────────────────────
         safety_parts = [result.get("safety_note", "")]
         if overrides:
